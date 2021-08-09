@@ -1,5 +1,6 @@
 package kst.app.fctinderapp
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
@@ -7,10 +8,7 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.*
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.yuyakaido.android.cardstackview.CardStackLayoutManager
@@ -26,6 +24,9 @@ class LikeActivity : AppCompatActivity(), CardStackListener {
 
     private val adapter = CardItemAdapter()
     private val cardItems = mutableListOf<CardItem>()
+    private val manager by lazy {
+        CardStackLayoutManager(this,this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,8 +40,18 @@ class LikeActivity : AppCompatActivity(), CardStackListener {
     }
 
     private fun initViews(){
-        binding.carStackView.layoutManager = CardStackLayoutManager(this,this)
+        binding.carStackView.layoutManager = manager
         binding.carStackView.adapter = adapter
+
+        binding.signOutButton.setOnClickListener {
+            auth.signOut()
+            startActivity(Intent(this,MainActivity::class.java))
+            finish()
+        }
+
+        binding.matchListButton.setOnClickListener {
+            startActivity(Intent(this,MatchedUserActivity::class.java))
+        }
     }
 
     private fun getCurrentUserDB(){
@@ -52,6 +63,7 @@ class LikeActivity : AppCompatActivity(), CardStackListener {
                     return
                 }
                 //유저정보 갱신
+                getUnSelectedUsers()
             }
             override fun onCancelled(error: DatabaseError) {
                 TODO("Not yet implemented")
@@ -83,6 +95,8 @@ class LikeActivity : AppCompatActivity(), CardStackListener {
         user["userId"] = userId
         user["name"] = name
         currentUserDB.updateChildren(user)
+
+        getUnSelectedUsers()
     }
 
     private fun getCurrentUserID(): String {
@@ -94,8 +108,101 @@ class LikeActivity : AppCompatActivity(), CardStackListener {
         return auth.currentUser?.uid.orEmpty()
     }
 
+    private fun getUnSelectedUsers(){
+        userDB.addChildEventListener(object: ChildEventListener{
+            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                if (snapshot.child("userId").value != getCurrentUserID()
+                    && snapshot.child("likedBy").child("like").hasChild(getCurrentUserID()).not()
+                    && snapshot.child("likedBy").child("disLike").hasChild(getCurrentUserID()).not()){
+                    val userId = snapshot.child("userId").value.toString()
+                    var name = "undecided"
+                    if (snapshot.child("name").value != null){
+                        name = snapshot.child("name").value.toString()
+                    }
+                    cardItems.add(CardItem(userId,name))
+                    adapter.submitList(cardItems)
+                    adapter.notifyDataSetChanged()
+                }
+            }
+
+            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                cardItems.find { it.userId == snapshot.key }?.let{
+                    it.userName = snapshot.child("name").value.toString()
+                }
+                adapter.submitList(cardItems)
+                adapter.notifyDataSetChanged()
+            }
+
+            override fun onChildRemoved(snapshot: DataSnapshot) { }
+
+            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) { }
+
+            override fun onCancelled(error: DatabaseError) {}
+        })
+    }
+
+    private fun like(){
+        val card = cardItems[manager.topPosition - 1]
+        cardItems.removeFirst()
+
+        userDB.child(card.userId)
+            .child("likedBy")
+            .child("like")
+            .child(getCurrentUserID())
+            .setValue(true)
+
+        //매칭된 시점 확인
+        saveMatchIfOtheruserLikedMe(card.userId)
+
+        Toast.makeText(this, "${card.userName}님을 Like 하셨습니다.",Toast.LENGTH_SHORT).show()
+    }
+
+    private fun disLike(){
+        val card = cardItems[manager.topPosition - 1]
+        cardItems.removeFirst()
+
+        userDB.child(card.userId)
+            .child("likedBy")
+            .child("dislike")
+            .child(getCurrentUserID())
+            .setValue(true)
+
+        Toast.makeText(this, "${card.userName}님을 disLike 하셨습니다.",Toast.LENGTH_SHORT).show()
+    }
+
+    private fun saveMatchIfOtheruserLikedMe(otherUserId: String){
+        val otherUserDB = userDB.child(getCurrentUserID()).child("likedBy").child("like").child(otherUserId)
+        otherUserDB.addListenerForSingleValueEvent(object : ValueEventListener{
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (snapshot.value == true){
+                    userDB.child(getCurrentUserID())
+                        .child("likedBy")
+                        .child("match")
+                        .child(otherUserId)
+                        .setValue(true)
+
+                    userDB.child(otherUserId)
+                        .child("likedBy")
+                        .child("match")
+                        .child(getCurrentUserID())
+                        .setValue(true)
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                TODO("Not yet implemented")
+            }
+
+        })
+    }
+
     override fun onCardSwiped(direction: Direction?) {
-        TODO("Not yet implemented")
+        when (direction){
+            Direction.Right -> like()
+            Direction.Left -> disLike()
+            else -> {
+            }
+        }
     }
 
     override fun onCardDragging(direction: Direction?, ratio: Float) {}
