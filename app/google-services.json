@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "685709088202",
+    "firebase_url": "https://fc-tinder-default-rtdb.firebaseio.com",
+    "project_id": "fc-tinder",
+    "storage_bucket": "fc-tinder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:685709088202:android:fe2950c11fe82049412b33",
+        "android_client_info": {
+          "package_name": "kst.app.fctinderapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "685709088202-rcbiajct9pb9vjg3ig7q9d4a6s0l3rgh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGrDymPspUwu-IFqwqpFNZ2sYmbIhD0nM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "685709088202-rcbiajct9pb9vjg3ig7q9d4a6s0l3rgh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
